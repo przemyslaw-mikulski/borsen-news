@@ -1,0 +1,8 @@
+streamlit
+duckdb
+feedparser
+pandas
+openai>=1.0.0
+requests
+watchdog
+ollama
