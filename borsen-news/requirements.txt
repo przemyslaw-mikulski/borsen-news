@@ -7,3 +7,6 @@ requests
 watchdog
 APScheduler>=3.10.0
 pytz
+python-dotenv
+beautifulsoup4
+lxml

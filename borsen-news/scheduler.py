@@ -27,9 +27,9 @@ class ArticleScheduler:
             articles_df = fetch_articles()
             
             if len(articles_df) > 0:
-                # Add translation column (using 'none' for scheduled fetches)
+                # Add translation column (using automatic translation for scheduled fetches)
                 articles_df["translated_summary"] = articles_df["summary"].apply(
-                    lambda x: translate_text(x, "none")
+                    lambda x: translate_text(x, "togetherai")
                 )
                 
                 # Save to database
@@ -62,13 +62,13 @@ class ArticleScheduler:
     def start_scheduler(self):
         """Start the scheduler"""
         if not self.is_running:
-            # Schedule fetch every 30 minutes between 6am and 8pm CET
-            # This will run at: 6:00, 6:30, 7:00, 7:30, ... 19:30, 20:00
+            # Schedule fetch every 2 hours between 6am and 12pm CET
+            # This will run at: 6:00, 8:00, 10:00, 12:00
             self.scheduler.add_job(
                 self.fetch_articles_job,
                 'cron',
-                hour='6-20',
-                minute='0,30',
+                hour='6,8,10,12',
+                minute='0',
                 id='frequent_fetch'
             )
             self.scheduler.start()
@@ -87,23 +87,29 @@ class ArticleScheduler:
         now_cet = datetime.now(CET)
         next_run = None
         
-        # Calculate next scheduled run (every 30 minutes from 6am to 8pm CET)
-        # Valid times: 6:00, 6:30, 7:00, 7:30, ..., 19:30, 20:00
+        # Calculate next scheduled run (every 2 hours from 6am to 12pm CET)
+        # Valid times: 6:00, 8:00, 10:00, 12:00
         
-        # Check if we're within the active hours (6am to 8pm)
+        # Check if we're within the active hours (6am to 12pm)
         current_hour = now_cet.hour
         current_minute = now_cet.minute
         
-        if 6 <= current_hour <= 20:
-            # We're in the active period, find next 30-minute slot
-            if current_minute < 30:
-                # Next run is at :30 of current hour
-                next_run = now_cet.replace(minute=30, second=0, microsecond=0)
-            elif current_hour < 20:
-                # Next run is at :00 of next hour
-                next_run = now_cet.replace(hour=current_hour + 1, minute=0, second=0, microsecond=0)
+        # Define the valid run hours
+        valid_hours = [6, 8, 10, 12]
+        
+        if 6 <= current_hour <= 12:
+            # We're in the active period, find next 2-hour slot
+            next_hour = None
+            for hour in valid_hours:
+                if hour > current_hour or (hour == current_hour and current_minute < 0):
+                    next_hour = hour
+                    break
+            
+            if next_hour:
+                # Next run is at next_hour:00 today
+                next_run = now_cet.replace(hour=next_hour, minute=0, second=0, microsecond=0)
             else:
-                # We're past 20:30, next run is tomorrow at 6:00
+                # We're past 12:00, next run is tomorrow at 6:00
                 next_run = (now_cet + timedelta(days=1)).replace(
                     hour=6, minute=0, second=0, microsecond=0
                 )
@@ -113,7 +119,7 @@ class ArticleScheduler:
                 # Before 6am today, next run is at 6:00 today
                 next_run = now_cet.replace(hour=6, minute=0, second=0, microsecond=0)
             else:
-                # After 8pm today, next run is at 6:00 tomorrow
+                # After 12pm today, next run is at 6:00 tomorrow
                 next_run = (now_cet + timedelta(days=1)).replace(
                     hour=6, minute=0, second=0, microsecond=0
                 )

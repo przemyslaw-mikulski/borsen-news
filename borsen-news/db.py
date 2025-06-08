@@ -44,7 +44,12 @@ def delete_all_articles():
             link TEXT,
             published TIMESTAMP,
             feed TEXT,
-            translated_summary TEXT
+            translated_title TEXT,
+            translated_summary TEXT,
+            content TEXT,
+            word_count INTEGER,
+            url TEXT,
+            scraped_at TIMESTAMP
         )
     """)
 
@@ -66,7 +71,12 @@ def save_to_db(df):
                 link TEXT,
                 published TIMESTAMP,
                 feed TEXT,
-                translated_summary TEXT
+                translated_title TEXT,
+                translated_summary TEXT,
+                content TEXT,
+                word_count INTEGER,
+                url TEXT,
+                scraped_at TIMESTAMP
             )
         """)
 
@@ -76,11 +86,41 @@ def save_to_db(df):
         except duckdb.CatalogException:
             con.execute("ALTER TABLE articles ADD COLUMN feed TEXT")
 
+        # Check if translated_title column exists, if not add it
+        try:
+            con.execute("SELECT translated_title FROM articles LIMIT 1")
+        except duckdb.CatalogException:
+            con.execute("ALTER TABLE articles ADD COLUMN translated_title TEXT")
+
         # Check if translated_summary column exists, if not add it
         try:
             con.execute("SELECT translated_summary FROM articles LIMIT 1")
         except duckdb.CatalogException:
             con.execute("ALTER TABLE articles ADD COLUMN translated_summary TEXT")
+
+        # Check if content column exists, if not add it
+        try:
+            con.execute("SELECT content FROM articles LIMIT 1")
+        except duckdb.CatalogException:
+            con.execute("ALTER TABLE articles ADD COLUMN content TEXT")
+
+        # Check if word_count column exists, if not add it
+        try:
+            con.execute("SELECT word_count FROM articles LIMIT 1")
+        except duckdb.CatalogException:
+            con.execute("ALTER TABLE articles ADD COLUMN word_count INTEGER")
+
+        # Check if url column exists, if not add it
+        try:
+            con.execute("SELECT url FROM articles LIMIT 1")
+        except duckdb.CatalogException:
+            con.execute("ALTER TABLE articles ADD COLUMN url TEXT")
+
+        # Check if scraped_at column exists, if not add it
+        try:
+            con.execute("SELECT scraped_at FROM articles LIMIT 1")
+        except duckdb.CatalogException:
+            con.execute("ALTER TABLE articles ADD COLUMN scraped_at TIMESTAMP")
 
         # Get existing articles to check for duplicates
         try:
