@@ -13,140 +13,143 @@ except ImportError:
 
 st.title("📰 Børsen RSS Feed Explorer")
 
-# Sidebar for database management
-st.sidebar.header("🗄️ Database Management")
+# Create main layout with columns
+main_col, db_col = st.columns([3, 1])
 
-# Show database statistics
-DB_PATH = "borsen.duckdb"
-if os.path.exists(DB_PATH):
-    file_size_mb = round(os.path.getsize(DB_PATH) / (1024 * 1024), 2)
-    st.sidebar.metric("Database Size", f"{file_size_mb} MB")
-    
-    try:
-        con = duckdb.connect(DB_PATH)
-        total_articles = con.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
-        st.sidebar.metric("Total Articles", total_articles)
-        con.close()
-    except:
-        st.sidebar.metric("Total Articles", 0)
-else:
-    st.sidebar.info("Database not created yet")
+with main_col:
+    translate_method = st.selectbox("Translate summaries to English using:", ["none", "deepl", "openai", "mistral7b"])
 
-# Manual cleanup button
-if st.sidebar.button("🧹 Clean Old Articles"):
-    deleted_count = cleanup_old_articles()
-    if deleted_count > 0:
-        st.sidebar.success(f"Deleted {deleted_count} old articles")
-    else:
-        st.sidebar.info("No articles older than 7 days found")
+    if st.button("🔄 Fetch latest articles"):
+        df = fetch_articles()
+        st.success(f"Fetched {len(df)} articles from the last 24 hours")
+        
+        # Display articles immediately after fetching
+        if len(df) > 0:
+            st.subheader("📄 Fetched Articles")
+            st.dataframe(df[['title', 'summary', 'link', 'published', 'feed']], use_container_width=True)
+        
+        if translate_method != "none":
+            with st.spinner("Translating summaries..."):
+                df["translated_summary"] = df["summary"].apply(lambda x: translate_text(x, translate_method))
+        else:
+            df["translated_summary"] = df["summary"].apply(lambda x: translate_text(x, "none"))
+        
+        try:
+            deleted_count, skipped_count, added_count = save_to_db(df)
+            
+            # Show success message with details
+            if translate_method != "none":
+                st.success(f"Added {added_count} new articles with {translate_method} translations")
+            else:
+                st.success(f"Added {added_count} new articles (no translation applied)")
+            
+            if skipped_count > 0:
+                st.info(f"⚠️ Skipped {skipped_count} duplicate articles")
+            
+            if deleted_count > 0:
+                st.info(f"🧹 Cleaned up {deleted_count} articles older than 7 days to optimize storage")
+                
+        except Exception as e:
+            st.error(f"Error saving articles to database: {e}")
+            st.error("Please try again or contact support if the problem persists.")
 
-# Clean all articles button with confirmation
-st.sidebar.divider()
-if st.sidebar.button("🗑️ Clean All Articles", type="secondary"):
-    if 'confirm_delete_all' not in st.session_state:
-        st.session_state.confirm_delete_all = True
-        st.rerun()
+    st.subheader("🗂 Latest articles")
 
-if st.session_state.get('confirm_delete_all', False):
-    st.sidebar.warning("⚠️ This will delete ALL articles!")
-    col1, col2 = st.sidebar.columns(2)
-    
-    with col1:
-        if st.button("✅ Confirm", key="confirm_yes"):
-            deleted_count = delete_all_articles()
-            st.sidebar.success(f"Deleted all {deleted_count} articles")
-            st.session_state.confirm_delete_all = False
-            st.rerun()
-    
-    with col2:
-        if st.button("❌ Cancel", key="confirm_no"):
-            st.session_state.confirm_delete_all = False
-            st.rerun()
+    search_term = st.text_input("Search titles", "")
+    df = load_latest()
 
-# Auto-scheduler section
-if scheduler_available:
-    st.sidebar.divider()
-    st.sidebar.header("🤖 Auto-Scheduler")
+    if search_term:
+        df = df[df['title'].str.contains(search_term, case=False)]
 
-    scheduler = get_scheduler()
-    status = scheduler.get_status()
+    st.dataframe(df[['title', 'translated_summary', 'link', 'published']], use_container_width=True)
 
-    # Show scheduler status
-    st.sidebar.metric("Current Time (CET)", status["current_time"])
-    if status["next_run"]:
-        st.sidebar.metric("Next Auto-Fetch", status["next_run"])
+# Right-hand side database management panel
+with db_col:
+    with st.expander("🗄️ Database Management", expanded=False):
+        # Show database statistics
+        DB_PATH = "borsen.duckdb"
+        if os.path.exists(DB_PATH):
+            file_size_mb = round(os.path.getsize(DB_PATH) / (1024 * 1024), 2)
+            st.metric("Database Size", f"{file_size_mb} MB")
+            
+            try:
+                con = duckdb.connect(DB_PATH)
+                total_articles = con.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
+                st.metric("Total Articles", total_articles)
+                con.close()
+            except:
+                st.metric("Total Articles", 0)
+        else:
+            st.info("Database not created yet")
 
-    # Scheduler controls
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.button("▶️ Start", key="start_scheduler", disabled=status["is_running"]):
-            if scheduler.start_scheduler():
-                st.sidebar.success("✅ Auto-scheduler started!")
+        # Manual cleanup button
+        if st.button("🧹 Clean Old Articles", key="cleanup_old"):
+            deleted_count = cleanup_old_articles()
+            if deleted_count > 0:
+                st.success(f"Deleted {deleted_count} old articles")
+            else:
+                st.info("No articles older than 7 days found")
+
+        # Clean all articles button with confirmation
+        st.divider()
+        if st.button("🗑️ Clean All Articles", type="secondary", key="delete_all"):
+            if 'confirm_delete_all' not in st.session_state:
+                st.session_state.confirm_delete_all = True
                 st.rerun()
 
-    with col2:
-        if st.button("⏸️ Stop", key="stop_scheduler", disabled=not status["is_running"]):
-            scheduler.stop_scheduler()
-            st.sidebar.info("⏸️ Auto-scheduler stopped")
-            st.rerun()
-
-    # Show scheduler stats
-    if status["is_running"]:
-        st.sidebar.success("🟢 Auto-scheduler is RUNNING")
-    else:
-        st.sidebar.info("🔴 Auto-scheduler is STOPPED")
-
-    if status["last_fetch_time"]:
-        st.sidebar.text(f"Last fetch: {status['last_fetch_time']}")
-        st.sidebar.text(f"Status: {status['last_fetch_status']}")
-        st.sidebar.text(f"Total fetches: {status['fetch_count']}")
-
-    st.sidebar.info("📅 Scheduled: Daily at 10:30 AM CET")
-else:
-    st.sidebar.warning("⚠️ Scheduler not available")
-
-translate_method = st.selectbox("Translate summaries to English using:", ["none", "deepl", "openai", "mistral7b"])
-
-if st.button("🔄 Fetch latest articles"):
-    df = fetch_articles()
-    st.success(f"Fetched {len(df)} articles from the last 24 hours")
-    
-    # Display articles immediately after fetching
-    if len(df) > 0:
-        st.subheader("📄 Fetched Articles")
-        st.dataframe(df[['title', 'summary', 'link', 'published', 'feed']], use_container_width=True)
-    
-    if translate_method != "none":
-        with st.spinner("Translating summaries..."):
-            df["translated_summary"] = df["summary"].apply(lambda x: translate_text(x, translate_method))
-    else:
-        df["translated_summary"] = df["summary"].apply(lambda x: translate_text(x, "none"))
-    
-    try:
-        deleted_count, skipped_count, added_count = save_to_db(df)
-        
-        # Show success message with details
-        if translate_method != "none":
-            st.success(f"Added {added_count} new articles with {translate_method} translations")
-        else:
-            st.success(f"Added {added_count} new articles (no translation applied)")
-        
-        if skipped_count > 0:
-            st.info(f"⚠️ Skipped {skipped_count} duplicate articles")
-        
-        if deleted_count > 0:
-            st.info(f"🧹 Cleaned up {deleted_count} articles older than 7 days to optimize storage")
+        if st.session_state.get('confirm_delete_all', False):
+            st.warning("⚠️ This will delete ALL articles!")
+            col1, col2 = st.columns(2)
             
-    except Exception as e:
-        st.error(f"Error saving articles to database: {e}")
-        st.error("Please try again or contact support if the problem persists.")
+            with col1:
+                if st.button("✅ Confirm", key="confirm_yes"):
+                    deleted_count = delete_all_articles()
+                    st.success(f"Deleted all {deleted_count} articles")
+                    st.session_state.confirm_delete_all = False
+                    st.rerun()
+            
+            with col2:
+                if st.button("❌ Cancel", key="confirm_no"):
+                    st.session_state.confirm_delete_all = False
+                    st.rerun()
 
-st.subheader("🗂 Latest articles")
+    # Auto-scheduler section in the same column
+    if scheduler_available:
+        with st.expander("🤖 Auto-Scheduler", expanded=False):
+            scheduler = get_scheduler()
+            status = scheduler.get_status()
 
-search_term = st.text_input("Search titles", "")
-df = load_latest()
+            # Show scheduler status
+            st.metric("Current Time (CET)", status["current_time"])
+            if status["next_run"]:
+                st.metric("Next Auto-Fetch", status["next_run"])
 
-if search_term:
-    df = df[df['title'].str.contains(search_term, case=False)]
+            # Scheduler controls
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("▶️ Start", key="start_scheduler", disabled=status["is_running"]):
+                    if scheduler.start_scheduler():
+                        st.success("✅ Auto-scheduler started!")
+                        st.rerun()
 
-st.dataframe(df[['title', 'translated_summary', 'link', 'published']], use_container_width=True)
+            with col2:
+                if st.button("⏸️ Stop", key="stop_scheduler", disabled=not status["is_running"]):
+                    scheduler.stop_scheduler()
+                    st.info("⏸️ Auto-scheduler stopped")
+                    st.rerun()
+
+            # Show scheduler stats
+            if status["is_running"]:
+                st.success("🟢 Auto-scheduler is RUNNING")
+            else:
+                st.info("🔴 Auto-scheduler is STOPPED")
+
+            if status["last_fetch_time"]:
+                st.text(f"Last fetch: {status['last_fetch_time']}")
+                st.text(f"Status: {status['last_fetch_status']}")
+                st.text(f"Total fetches: {status['fetch_count']}")
+
+            st.info("📅 Every 30 min, 6am-8pm CET")
+    else:
+        with st.expander("🤖 Auto-Scheduler", expanded=False):
+            st.warning("⚠️ Scheduler not available")
