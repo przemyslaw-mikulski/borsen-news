@@ -24,13 +24,13 @@ with main_col:
         models = ollama.list()
         mistral_available = any('mistral' in model['name'] for model in models.get('models', []))
         if mistral_available:
-            translate_options = ["none", "deepl", "openai", "mistral7b"]
+            translate_options = ["none", "deepl", "openai", "mistral7b", "togetherai"]
         else:
-            translate_options = ["none", "deepl", "openai"]
-            st.info("💡 Mistral 7B available only in local environment. Using cloud-compatible options.")
+            translate_options = ["none", "deepl", "openai", "togetherai"]
+            st.info("💡 Mistral 7B (local) not available. Cloud options available: Together AI.")
     except (ImportError, Exception):
-        translate_options = ["none", "deepl", "openai"]
-        st.info("💡 Running in cloud environment. Mistral 7B not available.")
+        translate_options = ["none", "deepl", "openai", "togetherai"]
+        st.info("💡 Running in cloud environment. Mistral 7B available via Together AI.")
     
     translate_method = st.selectbox("Translate summaries to English using:", translate_options)
 
