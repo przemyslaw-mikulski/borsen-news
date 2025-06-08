@@ -17,7 +17,22 @@ st.title("📰 Børsen RSS Feed Explorer")
 main_col, db_col = st.columns([3, 1])
 
 with main_col:
-    translate_method = st.selectbox("Translate summaries to English using:", ["none", "deepl", "openai", "mistral7b"])
+    # Check if we're in a local environment with Mistral available
+    try:
+        import ollama
+        # Try to list models to see if Mistral is available
+        models = ollama.list()
+        mistral_available = any('mistral' in model['name'] for model in models.get('models', []))
+        if mistral_available:
+            translate_options = ["none", "deepl", "openai", "mistral7b"]
+        else:
+            translate_options = ["none", "deepl", "openai"]
+            st.info("💡 Mistral 7B available only in local environment. Using cloud-compatible options.")
+    except (ImportError, Exception):
+        translate_options = ["none", "deepl", "openai"]
+        st.info("💡 Running in cloud environment. Mistral 7B not available.")
+    
+    translate_method = st.selectbox("Translate summaries to English using:", translate_options)
 
     if st.button("🔄 Fetch latest articles"):
         df = fetch_articles()

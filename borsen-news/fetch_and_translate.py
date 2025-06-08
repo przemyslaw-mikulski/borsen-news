@@ -84,6 +84,8 @@ def translate_text(text, method="none"):
         return response.choices[0].message.content
     elif method == "mistral7b":
         try:
+            # Check if ollama is available (local environment)
+            import ollama
             response = ollama.chat(model='mistral', messages=[
                 {
                     'role': 'user',
@@ -91,6 +93,9 @@ def translate_text(text, method="none"):
                 }
             ])
             return response['message']['content']
+        except ImportError:
+            print("Mistral7b not available in cloud environment - using original text")
+            return "[Mistral7b not available in cloud - Original Danish text]"
         except Exception as e:
             print(f"Mistral translation failed: {e}")
             return text

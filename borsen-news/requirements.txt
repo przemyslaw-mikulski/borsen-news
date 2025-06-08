@@ -5,6 +5,5 @@ pandas
 openai>=1.0.0
 requests
 watchdog
-ollama
 APScheduler>=3.10.0
 pytz
