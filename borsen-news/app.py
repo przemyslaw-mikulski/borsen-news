@@ -4,6 +4,13 @@ from db import save_to_db, load_latest, cleanup_old_articles, delete_all_article
 import duckdb
 import os
 
+# Initialize scheduler
+try:
+    from scheduler import get_scheduler
+    scheduler_available = True
+except ImportError:
+    scheduler_available = False
+
 st.title("📰 Børsen RSS Feed Explorer")
 
 # Sidebar for database management
@@ -55,6 +62,48 @@ if st.session_state.get('confirm_delete_all', False):
         if st.button("❌ Cancel", key="confirm_no"):
             st.session_state.confirm_delete_all = False
             st.rerun()
+
+# Auto-scheduler section
+if scheduler_available:
+    st.sidebar.divider()
+    st.sidebar.header("🤖 Auto-Scheduler")
+
+    scheduler = get_scheduler()
+    status = scheduler.get_status()
+
+    # Show scheduler status
+    st.sidebar.metric("Current Time (CET)", status["current_time"])
+    if status["next_run"]:
+        st.sidebar.metric("Next Auto-Fetch", status["next_run"])
+
+    # Scheduler controls
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("▶️ Start", key="start_scheduler", disabled=status["is_running"]):
+            if scheduler.start_scheduler():
+                st.sidebar.success("✅ Auto-scheduler started!")
+                st.rerun()
+
+    with col2:
+        if st.button("⏸️ Stop", key="stop_scheduler", disabled=not status["is_running"]):
+            scheduler.stop_scheduler()
+            st.sidebar.info("⏸️ Auto-scheduler stopped")
+            st.rerun()
+
+    # Show scheduler stats
+    if status["is_running"]:
+        st.sidebar.success("🟢 Auto-scheduler is RUNNING")
+    else:
+        st.sidebar.info("🔴 Auto-scheduler is STOPPED")
+
+    if status["last_fetch_time"]:
+        st.sidebar.text(f"Last fetch: {status['last_fetch_time']}")
+        st.sidebar.text(f"Status: {status['last_fetch_status']}")
+        st.sidebar.text(f"Total fetches: {status['fetch_count']}")
+
+    st.sidebar.info("📅 Scheduled: Daily at 10:30 AM CET")
+else:
+    st.sidebar.warning("⚠️ Scheduler not available")
 
 translate_method = st.selectbox("Translate summaries to English using:", ["none", "deepl", "openai", "mistral7b"])
 
