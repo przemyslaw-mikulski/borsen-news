@@ -95,4 +95,4 @@ def translate_text(text, method="none"):
             print(f"Mistral translation failed: {e}")
             return text
     else:
-        return text
+        return "[No translation - Original Danish text]"
