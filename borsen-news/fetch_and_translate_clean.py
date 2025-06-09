@@ -58,10 +58,6 @@ def fetch_articles():
     # Deduplicate based on title, summary, and link
     df = df.drop_duplicates(subset=['title', 'summary', 'link'], keep='last')
     
-    # Add translated_summary column (will be filled by the Streamlit app)
-    if not df.empty:
-        df['translated_summary'] = None
-        
     # Scrape full content for each article to extract NÆVNTE sections
     if not df.empty:
         scrape_article_content(df)

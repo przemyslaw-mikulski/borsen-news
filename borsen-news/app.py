@@ -71,10 +71,10 @@ with main_col:
     # Sort by published date descending
     articles_df = articles_df.sort_values('published', ascending=False)
     
-    # Display the enhanced table with new columns
+    # Display the enhanced table with new columns including NÆVNTE sections
     if not articles_df.empty:
-        # Select and reorder columns for display with link as a separate prominent column
-        display_columns = ['title', 'translated_summary', 'link', 'content', 'word_count', 'scraped_at', 'published']
+        # Select and reorder columns for display with the new NÆVNTE columns
+        display_columns = ['title', 'translated_summary', 'naevnte_emner', 'naevnte_virksomheder', 'link', 'content', 'word_count', 'scraped_at', 'published']
         available_columns = [col for col in display_columns if col in articles_df.columns]
         
         # Format the dataframe for better display
@@ -104,6 +104,16 @@ with main_col:
             "link": st.column_config.Column(
                 "Article Link",
                 help="Click to open the full article",
+                width="medium"
+            ),
+            "naevnte_emner": st.column_config.Column(
+                "Mentioned Topics",
+                help="Topics mentioned in the article",
+                width="medium"
+            ),
+            "naevnte_virksomheder": st.column_config.Column(
+                "Mentioned Companies",
+                help="Companies mentioned in the article", 
                 width="medium"
             )
         })
