@@ -198,7 +198,7 @@ def translate_with_together_ai(text):
     Translate text using Together AI's Mistral-7B model.
     Proven approach from NewsHavn integration.
     """
-    api_key = os.getenv("TOGETHER_API_KEY")
+    api_key = os.getenv("API_KEY")  # Using API_KEY to match .env file
     if not api_key:
         return "[Together AI API key not configured - Original Danish text]"
     
