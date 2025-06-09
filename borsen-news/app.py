@@ -80,10 +80,10 @@ with main_col:
         # Format the dataframe for better display
         display_df = articles_df[available_columns].copy()
         
-        # Make links clickable by formatting them as markdown links
+        # Keep links as plain URLs (clickable in Streamlit)
         if 'link' in display_df.columns:
             display_df['link'] = display_df['link'].apply(
-                lambda x: f"[🔗 Read Article]({x})" if pd.notna(x) else ""
+                lambda x: x if pd.notna(x) else ""
             )
         
         # Truncate content for display
@@ -101,9 +101,9 @@ with main_col:
             display_df['published'] = pd.to_datetime(display_df['published']).dt.strftime('%Y-%m-%d %H:%M')
         
         st.dataframe(display_df, use_container_width=True, column_config={
-            "link": st.column_config.LinkColumn(
+            "link": st.column_config.Column(
                 "Article Link",
-                help="Click to read the full article",
+                help="Click to open the full article",
                 width="medium"
             )
         })
